@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Voice Profile</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  main { max-width: 640px; }
+  .consent { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+    background: #fcfbf9; font-size: 14.5px; }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; font-weight: 600; }
+  .check input { margin-top: 4px; width: 18px; height: 18px; }
+  .read { font-size: 17px; line-height: 1.6; border-left: 3px solid var(--accent);
+    padding: 4px 0 4px 14px; margin: 10px 0 16px; }
+  .rec { width: 12px; height: 12px; border-radius: 50%; background: var(--accent);
+    display: inline-block; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  ol.steps { padding-left: 20px; margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Voice Profiles <span>●</span></div>
+  <div class="tag" id="org"></div>
+</header>
+<main>
+  <div id="error" class="notice err hidden"></div>
+
+  <div id="step-consent" class="panel hidden">
+    <h2 id="hello"></h2>
+    <p class="sub">Your organisation would like meeting transcripts to show your name automatically instead of "Speaker 2". This only works if you agree. You can say no — nothing changes for you, your name just has to be added by hand.</p>
+    <div class="consent" id="consent-text"></div>
+    <label class="check"><input type="checkbox" id="agree"> I have read this and I explicitly agree to the creation of my voice profile.</label>
+    <div class="row" style="margin-top:16px">
+      <button class="btn" id="to-record" disabled>Continue</button>
+      <button class="btn ghost" id="decline">No, thanks</button>
+    </div>
+  </div>
+
+  <div id="step-record" class="panel hidden">
+    <h2>Record about 20 seconds</h2>
+    <p class="sub">Please be in a quiet place and alone. Read the text below at your normal pace.</p>
+    <div class="read">The quarterly meeting will start at nine o'clock in the main conference room. We will review last month's results, discuss the new client projects in Zürich and Geneva, and agree on the next steps for the team. Please bring your notes and any open questions, so that we can finish on time and everybody knows what to do next.</div>
+    <div class="row">
+      <button class="btn" id="rec-btn">● Start recording</button>
+      <span id="rec-status" class="small muted"></span>
+    </div>
+    <audio id="playback" controls class="hidden" style="width:100%;margin-top:12px"></audio>
+    <details style="margin-top:14px" id="demo-wrap" class="hidden">
+      <summary class="small muted">Testing only: use a prepared voice sample instead of the microphone</summary>
+      <div class="row" style="margin-top:8px"><select id="demo-sample"></select></div>
+    </details>
+    <div class="row" style="margin-top:16px">
+      <button class="btn" id="submit" disabled>Create my voice profile</button>
+      <span id="submit-status" class="small muted"></span>
+    </div>
+  </div>
+
+  <div id="step-done" class="panel hidden">
+    <h2>Done — your voice profile is active</h2>
+    <p class="sub" id="done-meta"></p>
+    <ol class="steps">
+      <li>Your recording has already been discarded. Only the voice fingerprint is stored.</li>
+      <li>It is used only for meetings of your organisation.</li>
+      <li>It deletes itself after 12 months unless you renew it.</li>
+    </ol>
+    <div class="row" style="margin-top:18px">
+      <button class="btn danger" id="self-delete">Delete my voice profile now</button>
+    </div>
+  </div>
+
+  <div id="step-end" class="panel hidden"><h2 id="end-title"></h2><p class="sub" id="end-text"></p></div>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const q = new URLSearchParams(location.search);
+const tenant = q.get("tenant"), token = q.get("token");
+let info, blob = null, profileId = null;
+
+const show = (id) => ["consent", "record", "done", "end"].forEach((s) =>
+  $(`#step-${s}`).classList.toggle("hidden", s !== id));
+const fail = (msg) => { $("#error").textContent = msg; $("#error").classList.remove("hidden"); };
+const end = (title, text) => { $("#end-title").textContent = title; $("#end-text").textContent = text; show("end"); };
+
+(async () => {
+  const r = await fetch(`/api/invite/${encodeURIComponent(tenant)}/${encodeURIComponent(token)}`);
+  if (!r.ok) { fail("This invite link is invalid, already used, or expired."); return; }
+  info = await r.json();
+  $("#org").textContent = info.organisation;
+  $("#hello").textContent = `Hello ${info.name}`;
+  $("#consent-text").textContent = info.consent_text;
+  show("consent");
+
+  const demo = await (await fetch("/api/demo-files")).json();
+  if ((demo.enroll_samples || []).length) {
+    $("#demo-sample").innerHTML = `<option value="">— none —</option>` + demo.enroll_samples
+      .map((s) => `<option value="${s.file}">${s.label}</option>`).join("");
+    $("#demo-wrap").classList.remove("hidden");
+  }
+})();
+
+$("#agree").addEventListener("change", (e) => { $("#to-record").disabled = !e.target.checked; });
+$("#to-record").addEventListener("click", () => show("record"));
+$("#decline").addEventListener("click", () =>
+  end("No problem", "No voice profile was created and nothing was recorded. You can close this page."));
+
+// microphone recording
+let recorder = null, chunks = [], timer = null;
+$("#rec-btn").addEventListener("click", async () => {
+  if (recorder && recorder.state === "recording") { recorder.stop(); return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { fail("Microphone access was blocked. Allow it in the browser and try again."); return; }
+  chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => chunks.push(e.data);
+  recorder.onstop = () => {
+    stream.getTracks().forEach((t) => t.stop());
+    clearInterval(timer);
+    blob = new Blob(chunks, { type: recorder.mimeType });
+    $("#playback").src = URL.createObjectURL(blob);
+    $("#playback").classList.remove("hidden");
+    $("#rec-btn").textContent = "● Record again";
+    $("#rec-status").textContent = "Listen back, then create your profile.";
+    $("#demo-sample").value = "";
+    $("#submit").disabled = false;
+  };
+  recorder.start();
+  const t0 = Date.now();
+  $("#rec-btn").textContent = "■ Stop";
+  timer = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    $("#rec-status").innerHTML = `<span class="rec"></span> Recording… ${s}s ${s >= 20 ? "— you can stop now" : ""}`;
+  }, 250);
+});
+
+$("#demo-sample").addEventListener("change", async (e) => {
+  if (!e.target.value) return;
+  blob = await (await fetch(`/demo/${e.target.value}`)).blob();
+  $("#playback").src = `/demo/${e.target.value}`;
+  $("#playback").classList.remove("hidden");
+  $("#submit").disabled = false;
+});
+
+$("#submit").addEventListener("click", async () => {
+  $("#submit").disabled = true;
+  $("#submit-status").textContent = "Creating fingerprint…";
+  $("#error").classList.add("hidden");
+  const fd = new FormData();
+  fd.append("audio", blob, "sample.webm");
+  fd.append("consent", $("#agree").checked);
+  fd.append("consent_version", info.consent_version);
+  const r = await fetch(`/api/invite/${encodeURIComponent(tenant)}/${encodeURIComponent(token)}/enroll`,
+    { method: "POST", body: fd });
+  const body = await r.json();
+  $("#submit-status").textContent = "";
+  if (!r.ok) { fail(body.detail); $("#submit").disabled = false; return; }
+  profileId = body.profile_id;
+  $("#done-meta").textContent = `Built from ${body.speech_seconds}s of your speech.`;
+  show("done");
+});
+
+$("#self-delete").addEventListener("click", async () => {
+  const r = await fetch(`/api/me/${encodeURIComponent(tenant)}/${profileId}`, { method: "DELETE" });
+  if (r.ok) end("Your voice profile was deleted",
+    "It is gone from our systems immediately. Future meetings will show you as an anonymous speaker again.");
+  else fail("Could not delete — please try again.");
+});
+</script>
+</body>
+</html>

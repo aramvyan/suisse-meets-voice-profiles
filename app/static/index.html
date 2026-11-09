@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Profiles Prototype</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">Voice Profiles <span>●</span></div>
+  <div class="tag">Prototype · Suisse Meets challenge B</div>
+  <div class="spacer"></div>
+  <label class="small muted" for="tenant">Customer</label>
+  <select id="tenant"></select>
+</header>
+
+<main>
+  <nav class="tabs">
+    <button data-tab="team" class="active">1 · Team &amp; consent</button>
+    <button data-tab="meeting">2 · Analyse a meeting</button>
+    <button data-tab="accuracy">3 · Accuracy</button>
+    <button data-tab="audit">4 · Audit log</button>
+  </nav>
+
+  <!-- TEAM -->
+  <section id="tab-team">
+    <div class="panel">
+      <h2>Invite a colleague</h2>
+      <p class="sub">The admin can only <b>invite</b>. The person opens their own link, reads the consent text and records their voice themself — nobody can give consent on someone else's behalf.</p>
+      <form id="invite-form" class="row">
+        <input type="text" id="inv-name" placeholder="Full name" required>
+        <input type="email" id="inv-email" placeholder="email@company.ch" required>
+        <button class="btn" type="submit">Create invite link</button>
+      </form>
+      <div id="invite-result" class="notice ok hidden"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Voice profiles</h2>
+      <p class="sub">Only a 192-number voice fingerprint is stored (encrypted with this customer's own key). The recording itself is never kept.</p>
+      <div id="profiles"></div>
+    </div>
+  </section>
+
+  <!-- MEETING -->
+  <section id="tab-meeting" class="hidden">
+    <div class="panel">
+      <h2>Analyse a meeting recording</h2>
+      <p class="sub">Diarization splits the audio by voice, then each anonymous speaker is compared with <b>this customer's</b> profiles only. Below the threshold the speaker stays unnamed — a wrong name is worse than no name.</p>
+      <div class="row">
+        <input type="file" id="meeting-file" accept="audio/*,video/*">
+        <span class="muted small">or</span>
+        <select id="demo-meeting"><option value="">— demo meeting —</option></select>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <label class="small" for="thr">Match threshold</label>
+        <input type="range" id="thr" min="0.2" max="0.9" step="0.01" style="width:220px">
+        <span id="thr-v" class="mono"></span>
+        <span class="small muted" id="thr-note"></span>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="analyze-btn">Analyse</button>
+        <span id="analyze-status" class="small muted"></span>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="result-panel">
+      <div class="row" style="justify-content:space-between">
+        <h2>Transcript</h2>
+        <div class="toggle"><button id="v-before">Before (today)</button><button id="v-after" class="on">With voice profiles</button></div>
+      </div>
+      <p class="sub" id="result-meta"></p>
+      <div class="speakers" id="speakers"></div>
+      <div id="audio-wrap"></div>
+      <div id="segments"></div>
+    </div>
+  </section>
+
+  <!-- ACCURACY -->
+  <section id="tab-accuracy" class="hidden">
+    <div id="accuracy"></div>
+  </section>
+
+  <!-- AUDIT -->
+  <section id="tab-audit" class="hidden">
+    <div class="panel">
+      <h2>Audit log</h2>
+      <p class="sub">Append-only record of consent and processing. It contains no biometric data, so it can be kept after a profile is deleted as proof that consent was given and withdrawn.</p>
+      <div id="audit"></div>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
