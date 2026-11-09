@@ -122,40 +122,46 @@ def invite_info(tenant: str, token: str):
 async def enroll(tenant: str, token: str, audio: UploadFile,
                  consent: bool = Form(False), consent_version: str = Form("")):
     v = vault(tenant)
-    inv = v.peek_invite(token)
-    if not inv:
-        raise HTTPException(404, "invite link is invalid or expired")
     if not consent or consent_version != CONSENT_VERSION:
         raise HTTPException(400, "explicit consent to the current text is required")
-    samples = await decode_upload(audio)
-    with engine_lock:
-        turns = engine.diarize(samples)
-    speech = sum(t.end - t.start for t in turns)
-    if speech < MIN_ENROLL_SECONDS:
-        raise HTTPException(400, f"only {speech:.0f}s of speech detected — "
-                                 f"please speak for at least {MIN_ENROLL_SECONDS:.0f}s")
-    per_cluster: dict[int, float] = {}
-    for t in turns:
-        per_cluster[t.cluster] = per_cluster.get(t.cluster, 0) + t.end - t.start
-    main = max(per_cluster, key=per_cluster.get)
-    if per_cluster[main] < 0.85 * speech:
-        raise HTTPException(400, "more than one voice detected — please record alone")
-    with engine_lock:
-        vec = engine.embed(cluster_audio(samples, turns, main, max_seconds=60))
+    inv = v.take_invite(token)  # claimed atomically: one invite, one profile
+    if not inv:
+        raise HTTPException(404, "invite link is invalid or expired")
+    try:
+        samples = await decode_upload(audio)
+        with engine_lock:
+            turns = engine.diarize(samples)
+        speech = sum(t.end - t.start for t in turns)
+        if speech < MIN_ENROLL_SECONDS:
+            raise HTTPException(400, f"only {speech:.0f}s of speech detected — "
+                                     f"please speak for at least {MIN_ENROLL_SECONDS:.0f}s")
+        per_cluster: dict[int, float] = {}
+        for t in turns:
+            per_cluster[t.cluster] = per_cluster.get(t.cluster, 0) + t.end - t.start
+        main = max(per_cluster, key=per_cluster.get)
+        if per_cluster[main] < 0.85 * speech:
+            raise HTTPException(400, "more than one voice detected — please record alone")
+        with engine_lock:
+            vec = engine.embed(cluster_audio(samples, turns, main, max_seconds=60))
+    except Exception:
+        v.restore_invite(token, inv)  # let the person try again
+        raise
     # Consent is recorded BEFORE the biometric profile exists.
     consent_id = v.log("consent_given", email=inv["email"], version=CONSENT_VERSION,
                        text_sha256=CONSENT_HASH, channel="personal invite link")
     pid = v.add_profile(inv["name"], inv["email"], vec, per_cluster[main], consent_id)
-    v.consume_invite(token)
     # The raw recording is discarded here — it only lived in memory.
-    return {"profile_id": pid, "speech_seconds": round(per_cluster[main], 1)}
+    # The manage token is the person's private delete link; in production it
+    # is emailed to them, and they can also delete after logging in.
+    return {"manage_token": v.create_manage_token(pid),
+            "speech_seconds": round(per_cluster[main], 1)}
 
 
-@app.delete("/api/me/{tenant}/{profile_id}")
-def self_delete(tenant: str, profile_id: str):
-    # Prototype shortcut: the profile id acts as the person's private manage
-    # link. In production this sits behind the person's own login.
-    if not vault(tenant).delete_profile(profile_id, by="self"):
+@app.delete("/api/me/{tenant}/{manage_token}")
+def self_delete(tenant: str, manage_token: str):
+    v = vault(tenant)
+    profile_id = v.profile_for_manage_token(manage_token)
+    if not profile_id or not v.delete_profile(profile_id, by="self"):
         raise HTTPException(404, "no such profile")
     return {"deleted": True}
 

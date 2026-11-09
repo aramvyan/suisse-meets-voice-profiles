@@ -20,6 +20,7 @@ import hashlib
 import json
 import re
 import secrets
+import threading
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -33,6 +34,8 @@ from .engine import ROOT
 TENANTS_DIR = ROOT / "data" / "tenants"
 TENANT_ID = re.compile(r"^[a-z0-9-]{3,40}$")
 PROFILE_TTL_DAYS = 365  # profile expires unless the person re-confirms
+
+_invite_lock = threading.Lock()
 
 CONSENT_VERSION = "v1-2026-11"
 CONSENT_TEXT = (
@@ -155,10 +158,36 @@ class TenantVault:
             return None  # invite links expire after 7 days
         return inv
 
-    def consume_invite(self, token: str) -> None:
-        invites = self._invites()
-        invites.pop(_hash_token(token), None)
-        (self.dir / "invites.json").write_text(json.dumps(invites))
+    def take_invite(self, token: str) -> dict | None:
+        """Atomically claim an invite so it can't be used twice in parallel."""
+        with _invite_lock:
+            inv = self.peek_invite(token)
+            if inv:
+                invites = self._invites()
+                invites.pop(_hash_token(token), None)
+                (self.dir / "invites.json").write_text(json.dumps(invites))
+            return inv
+
+    def restore_invite(self, token: str, inv: dict) -> None:
+        """Give the invite back when enrollment failed (e.g. audio too short)."""
+        with _invite_lock:
+            invites = self._invites()
+            invites[_hash_token(token)] = inv
+            (self.dir / "invites.json").write_text(json.dumps(invites))
+
+    # --- self-service management link (stored hashed, like invites) ----
+    def create_manage_token(self, profile_id: str) -> str:
+        token = secrets.token_urlsafe(24)
+        f = self.dir / "manage.json"
+        tokens = json.loads(f.read_text()) if f.exists() else {}
+        tokens[_hash_token(token)] = profile_id
+        f.write_text(json.dumps(tokens))
+        return token
+
+    def profile_for_manage_token(self, token: str) -> str | None:
+        f = self.dir / "manage.json"
+        tokens = json.loads(f.read_text()) if f.exists() else {}
+        return tokens.get(_hash_token(token))
 
     # --- append-only audit / consent log (no biometric data) -----------
     def log(self, event: str, **fields) -> str:

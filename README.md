@@ -47,3 +47,8 @@ Open http://localhost:8000.
 * The encryption key sits next to the data here; production uses a KMS in a
   Swiss region with per-tenant keys.
 * Overlapping speech is not handled specially.
+* **No admin login** — it is a localhost demo. In production the tenant comes
+  from the authenticated admin session (never from the URL), invite links go
+  only to the invited email address, and the admin API never sees the token.
+  Here the invite link is shown to the admin so the flow can be demoed on one
+  machine.

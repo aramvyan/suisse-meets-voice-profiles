@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
@@ -57,3 +58,19 @@ def test_too_short_sample_is_refused_and_nothing_stored(client):
     assert client.get("/api/t/alpine-dental/profiles").json() == []
     events = [e["event"] for e in client.get("/api/t/alpine-dental/audit").json()]
     assert "consent_given" not in events
+
+
+def test_failed_enrollment_gives_the_invite_back(client):
+    token = invite(client)
+    assert enroll(client, token).status_code == 400  # too short
+    # The same link still works for a second attempt.
+    assert client.get(f"/api/invite/alpine-dental/{token}").status_code == 200
+
+
+def test_self_delete_needs_the_manage_token_not_the_profile_id(client):
+    v = store.TenantVault("alpine-dental")
+    pid = v.add_profile("Anna", "anna@a.ch", np.ones(192, dtype=np.float32) / 192 ** 0.5, 20, "c")
+    assert client.delete(f"/api/me/alpine-dental/{pid}").status_code == 404
+    token = v.create_manage_token(pid)
+    assert client.delete(f"/api/me/alpine-dental/{token}").status_code == 200
+    assert client.get("/api/t/alpine-dental/profiles").json() == []

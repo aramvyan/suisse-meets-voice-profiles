@@ -95,8 +95,17 @@ def test_invite_token_is_stored_hashed_and_single_use(tmp_tenants):
     token = v.create_invite("Anna", "anna@a.ch")
     assert token not in (tmp_tenants / "alpine-dental" / "invites.json").read_text()
     assert v.peek_invite(token)["email"] == "anna@a.ch"
-    v.consume_invite(token)
-    assert v.peek_invite(token) is None
+    assert v.take_invite(token)["email"] == "anna@a.ch"
+    assert v.peek_invite(token) is None and v.take_invite(token) is None
+
+
+def test_manage_token_is_stored_hashed_and_maps_to_profile(tmp_tenants):
+    v = store.TenantVault("alpine-dental")
+    pid = v.add_profile("Anna", "anna@a.ch", unit(1), 20, "c1")
+    token = v.create_manage_token(pid)
+    assert token not in (tmp_tenants / "alpine-dental" / "manage.json").read_text()
+    assert v.profile_for_manage_token(token) == pid
+    assert v.profile_for_manage_token(pid) is None  # the profile id is not a key
 
 
 def mix(a, b, w):

@@ -77,7 +77,7 @@
 const $ = (s) => document.querySelector(s);
 const q = new URLSearchParams(location.search);
 const tenant = q.get("tenant"), token = q.get("token");
-let info, blob = null, profileId = null;
+let info, blob = null, manageToken = null;
 
 const show = (id) => ["consent", "record", "done", "end"].forEach((s) =>
   $(`#step-${s}`).classList.toggle("hidden", s !== id));
@@ -157,13 +157,13 @@ $("#submit").addEventListener("click", async () => {
   const body = await r.json();
   $("#submit-status").textContent = "";
   if (!r.ok) { fail(body.detail); $("#submit").disabled = false; return; }
-  profileId = body.profile_id;
+  manageToken = body.manage_token;
   $("#done-meta").textContent = `Built from ${body.speech_seconds}s of your speech.`;
   show("done");
 });
 
 $("#self-delete").addEventListener("click", async () => {
-  const r = await fetch(`/api/me/${encodeURIComponent(tenant)}/${profileId}`, { method: "DELETE" });
+  const r = await fetch(`/api/me/${encodeURIComponent(tenant)}/${encodeURIComponent(manageToken)}`, { method: "DELETE" });
   if (r.ok) end("Your voice profile was deleted",
     "It is gone from our systems immediately. Future meetings will show you as an anonymous speaker again.");
   else fail("Could not delete — please try again.");
