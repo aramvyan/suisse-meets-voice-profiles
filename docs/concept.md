@@ -17,7 +17,7 @@ I built a working prototype to test the idea before writing this plan. It runs f
 | Same meetings with background noise | 89.9% correct, 1.1% wrong name |
 | Same voices, analysed as another customer | 0 names leaked |
 
-These numbers come from clean audiobook speech. Real meetings are harder. Section 4 explains how we measure on real audio before launch.
+These numbers come from clean audiobook speech. Real meetings are harder. Section 3 explains how we measure on real audio before launch.
 
 Three rules guide every decision below:
 
@@ -35,11 +35,11 @@ Three rules guide every decision below:
 2. The admin **invites** colleagues. The admin cannot record or consent for anyone.
 3. Each person gets a personal link by email. It works for 7 days and only once.
 4. The person reads a short consent text. It says in plain words:
-   - what is stored (a voice fingerprint, not the recording),
-   - why (only to show their name in this organisation's transcripts),
-   - where (Switzerland),
-   - that saying no has no consequence for them,
-   - how to delete it, and that it expires after 12 months.
+    - what is stored (a voice fingerprint, not the recording),
+    - why (only to show their name in this organisation's transcripts),
+    - where (Switzerland),
+    - that saying no has no consequence for them,
+    - how to delete it, and that it expires after 12 months.
 5. The checkbox is **not** pre-ticked. There is a visible "No, thanks" button.
 6. The person reads a short text aloud for about 20 seconds, in the browser or the app.
 7. The system checks the sample: at least 8 seconds of speech, only one voice. If not, it asks to record again.
