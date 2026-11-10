@@ -8,16 +8,16 @@ Today a transcript says "Speaker 1" and "Speaker 2". Users rename the same colle
 
 The idea: a person records their voice once, with their own explicit consent. After that, every meeting of their organisation shows their name automatically. On any device.
 
-I built a working prototype to test the idea before writing this plan. It runs fully on a laptop CPU, with open models.
+I built a working prototype to test the idea before writing this plan. It runs fully on a laptop CPU, with open models. I tested it on **real meetings** from the public AMI corpus: 4 groups of 4 people, each group meets several times. Voices are learned from a group's first meeting and recognised in the later ones, which is exactly what the product does.
 
-| What was tested | Result |
+| What was tested (4.4 hours of real meetings, 16 people) | Result |
 |---|---|
-| Short voice clips (2-8 s), 20 known + 7 unknown people | 99.7% correct, 0.3% wrong name |
-| Full pipeline on 8 synthetic meetings (20 min) | 91.8% of speech time correctly labelled, 2.0% under a wrong name |
-| Same meetings with background noise | 89.9% correct, 1.1% wrong name |
-| Same voices, analysed as another customer | 0 names leaked |
+| Speech time with the right label (the name, or no name for a guest) | 89.9% |
+| Speech time under a **wrong** person's name | 2.2% (0.5% to 5.7% depending on the group) |
+| Short clips (2-8 s): equal error rate | 1.6% |
+| Meetings analysed by a customer who has 12 other people enrolled | 1 false name in 239 speakers |
 
-These numbers come from clean audiobook speech. Real meetings are harder. Section 3 explains how we measure on real audio before launch.
+Model and threshold were chosen on one group and measured on the three others, in all 4 rotations. Honest result: the 1% wrong-name target is **not met yet**. Section 3 says what changes that, and how we measure on Suisse Meets' own audio before launch.
 
 Three rules guide every decision below:
 
@@ -33,23 +33,25 @@ Three rules guide every decision below:
 
 1. The customer admin turns the feature on for the organisation. It is **off by default**.
 2. The admin **invites** colleagues. The admin cannot record or consent for anyone.
-3. Each person gets a personal link by email. It works for 7 days and only once.
-4. The person reads a short consent text. It says in plain words:
+3. Each person gets a personal link by email, to their own address only. It works for 7 days and only once. The admin never sees the link. People without a Suisse Meets account confirm their email first.
+4. The person reads a short consent text. Consent is given to **their organisation** (the controller), with Suisse Meets named as its service provider (processor). It says in plain words:
     - what is stored (a voice fingerprint, not the recording),
     - why (only to show their name in this organisation's transcripts),
     - where (Switzerland),
     - that saying no has no consequence for them,
     - how to delete it, and that it expires after 12 months.
 5. The checkbox is **not** pre-ticked. There is a visible "No, thanks" button.
-6. The person reads a short text aloud for about 20 seconds, in the browser or the app.
+6. The person reads a short text aloud for about 20 seconds, in the browser or the app. The text includes a **random sentence**, and transcription checks it was really read. So an old recording of someone else can't be uploaded instead.
 7. The system checks the sample: at least 8 seconds of speech, only one voice. If not, it asks to record again.
-8. The consent record is saved **first**. Then the fingerprint is created. Then the recording is deleted.
+8. The consent record is saved **before any voice processing starts**. Then the fingerprint is created. The recording is processed in memory only and never written to disk.
 
 ### Second way to enroll: "This is me"
 
 Recording a sample is extra work, and some people will skip it. So after a meeting, a person can open the transcript and mark **their own** segments with "This is me". The same consent screen comes first.
 
-Risk: someone could claim another person's voice. So this path needs one short live check: the person says one sentence, and it must match the claimed segments. If not, nothing is saved.
+Risk: someone could claim another person's voice. So this path needs one short live check: the person reads a random sentence, and it must match the claimed segments. If not, nothing is saved.
+
+This is a voice check, and below I say voice must not be used for login. The difference is what is at stake. A login protects access to data. Here the worst case is a wrong name label, which the real person sees and can correct. The random sentence makes replay hard, and every enrollment is in the audit log.
 
 ### What is stored
 
@@ -64,7 +66,7 @@ The audit log has no voice data. So we can keep it after deletion, as proof that
 
 ### Deleting
 
-- **The person:** one click in their settings, and a delete link in every email we send them. Deletion is immediate.
+- **The person:** one click in their settings, and a delete link in every email we send them. Deletion from the live system is immediate. Encrypted backups roll over within 30 days, so the fingerprint is gone everywhere after that. The consent text says this.
 - **The admin:** can delete any profile in the organisation.
 - **Automatic:** after 12 months, unless the person renews it. We send a reminder 30 days before.
 - **Leavers:** when a user is removed from the customer account, their profile is deleted the same moment.
@@ -112,15 +114,18 @@ meeting audio
 - NVIDIA TitaNet-small: the voice fingerprint,
 - Whisper tiny.en: the text (only for the demo; Suisse Meets has its own transcription).
 
-I compared three fingerprint models on the same data before choosing:
+I compared three open fingerprint models on the same real meetings, with the same cross-validation. None of them lists AMI in its training data:
 
-| Model | Equal error rate | Avg score, different people | Avg score, same person |
+| Model | Correct label | Wrong name | Clip equal error rate |
 |---|---|---|---|
-| WeSpeaker ResNet34 | 2.48% | 0.57 | 0.89 |
-| 3D-Speaker ERes2Net | 0.62% | 0.18 | 0.82 |
-| **NVIDIA TitaNet-small** | **0.00%** | **0.07** | **0.88** |
+| **NVIDIA TitaNet-small (chosen)** | **90.2%** | **2.3%** | **1.6%** |
+| 3D-Speaker ERes2Net | 90.1% | 1.8% | 2.3% |
+| WeSpeaker ResNet34 | 83.3% | 5.7% | 13.1% |
 
-With the first model, 22% of meeting speech got a wrong name. With TitaNet it was 2%. This is why the model choice must be made with data and repeated on real Suisse Meets audio.
+Two lessons from building this:
+
+1. **Test data must be new to the model.** My first test used audiobook speech (LibriSpeech) and showed 0% errors for TitaNet. Then I found TitaNet was trained on LibriSpeech. I threw those results away and moved to AMI meetings.
+2. **One small calibration set is not enough.** Tuned on a single meeting, the rule picked WeSpeaker, which was then the worst on the other groups. With cross-validation, TitaNet and 3D-Speaker are close, and the choice must be repeated on real Suisse Meets audio.
 
 ### Where it runs
 
@@ -131,7 +136,7 @@ Recognition runs on the server, in Switzerland, in the same job that creates the
 A voice recorded on a phone sounds different from the same voice on a conference recorder. Two measures:
 
 1. We measure accuracy **per device type**, not only in total.
-2. A profile can hold up to 3 fingerprints from different devices. "This is me" from a recorder meeting adds a recorder fingerprint.
+2. A profile can hold up to 3 fingerprints from different devices. "This is me" from a recorder meeting adds a recorder fingerprint. (Planned. The prototype stores one fingerprint per person and is tested on headset audio only. Cross-device accuracy is a Phase 1 test, not a result yet.)
 
 ---
 
@@ -148,7 +153,15 @@ We build a test set from real meetings of our own team and pilot customers, with
 | False accept rate per comparison | Is the threshold safe? | below 0.1% |
 | Results per device, language, gender | Does it work for everyone the same? | no group much worse than average |
 
-**Rule of the test:** the threshold is tuned on one group of people and reported on a **different** group. The prototype does this: 27 people for tuning, 27 other people for the results. Otherwise the numbers look better than reality.
+**Bigger companies, more risk.** A false accept rate is per comparison. A guest is compared with every profile, so with 300 profiles the chance that some profile crosses the threshold is much higher than with 20. So the threshold is set by the number of profiles in the customer, and a name is shown only if the best match is clearly ahead of the second best (a margin rule). Phase 1 tests this with realistic company sizes.
+
+**Small samples lie.** A few meetings can't prove "below 1%". Phase 1 uses enough real meetings (our team plus 2-3 pilot customers) and reports results per meeting and with confidence ranges, not one number.
+
+**Hard conditions in the test set:** far-field room microphones, phone and browser codecs, overlapping speech, short turns, Swiss German, French and Italian.
+
+**Rule of the test:** the model and threshold are tuned on one group of people and reported on **different** people. The prototype does this with 4 rotations on the AMI meetings. Otherwise the numbers look better than reality.
+
+**What the prototype shows about the threshold.** The best threshold moved between 0.33 and 0.58 depending on the calibration group, and the wrong-name rate between 0.5% and 5.7%. A stricter threshold (0.575) gives about 0.8% wrong names but only about 87% correct labels. So the way to reach the 1% target is not just a higher threshold. It is: more calibration data, the margin rule above, a profile from more than one recording, and the "Is this Anna?" confirmation for uncertain matches.
 
 Languages: Swiss German, French and Italian speakers must be in the test set. Voice fingerprints mostly don't depend on language, but this must be checked, not assumed.
 
@@ -170,7 +183,7 @@ Isolation is not one wall. It is several, so one mistake does not leak data.
 3. **No shared search index.** The comparison function receives one customer's profiles and nothing else. There is no code path that loads profiles across customers.
 4. **Database rules** (row-level security) as a second check, in case the code has a bug.
 5. **Logs never contain fingerprints.** Only ids.
-6. **Automated tests in CI:** enroll voices in customer A, analyse the same voices as customer B, expect zero names. This runs on every change.
+6. **Automated tests in CI:** enroll voices in customer A, analyse the same voices as customer B, expect zero names. Also: a file copied from A can't be decrypted with B's key. This runs on every change.
 7. **External penetration test** before general launch.
 
 ---
@@ -285,19 +298,20 @@ Art. 26 of Ordinance 3 to the Labour Act (ArGV 3) forbids systems built to monit
 | Real meetings are harder than test audio | Phase 1 gate on real data. Conservative threshold. |
 | One person split into two speakers | Second matching pass with a stricter threshold. Remaining cases stay anonymous, not wrong. |
 | Overlapping speech | Not handled in v1. Measure how often it happens in real meetings first. |
+| A better voice model comes out | Fingerprints from different models don't match, and recordings are deleted. So every profile stores its model version. A model change means re-enrollment: a short re-record or "This is me" on a past meeting. Old profiles keep working until then. |
 | Model works worse for some accents or voices | Measure per group before launch, block launch if one group is much worse. |
 
 ---
 
 ## Appendix: the prototype
 
-Source code: `suisse-meets-voice-profiles` (Python, FastAPI, sherpa-onnx). Runs with one command on a laptop.
+Source code: https://github.com/aramvyan/suisse-meets-voice-profiles (Python, FastAPI, sherpa-onnx). Runs on a laptop CPU, no cloud.
 
 What it shows:
 
 - Invite, consent, recording and self-delete pages.
-- Meeting analysis with a "before / after" switch, and the guest staying anonymous.
+- Meeting analysis of a real meeting excerpt with a "before / after" switch. Three enrolled people get their names, the fourth person was not enrolled and stays anonymous.
 - Two fictional customers. The same meeting gets names in one and no names in the other.
-- Accuracy page: how the threshold was chosen, the model comparison, all test results.
+- Accuracy page: cross-validation per group, results per meeting, the model comparison, the threshold chart.
 - Audit log of consent and deletions.
 - 25 automated tests for consent, deletion, encryption and isolation rules.

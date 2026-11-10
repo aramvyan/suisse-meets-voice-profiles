@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import secrets
 import threading
@@ -36,12 +37,15 @@ TENANT_ID = re.compile(r"^[a-z0-9-]{3,40}$")
 PROFILE_TTL_DAYS = 365  # profile expires unless the person re-confirms
 
 _invite_lock = threading.Lock()
+# Serialises read-modify-write of the file-based store (a database with
+# transactions replaces this in production).
+_store_lock = threading.RLock()
 
 CONSENT_VERSION = "v1-2026-11"
 CONSENT_TEXT = (
-    "I agree that Suisse Meets creates a voice profile from my voice sample "
-    "for the sole purpose of showing my name in this organisation's meeting "
-    "transcripts. Only a mathematical voice fingerprint is stored, not the "
+    "I agree that my organisation creates a voice profile from my voice "
+    "sample, with Suisse Meets as its service provider, for the sole purpose "
+    "of showing my name in my organisation's meeting transcripts. Only a mathematical voice fingerprint is stored, not the "
     "recording. It is stored in Switzerland, is used only within my "
     "organisation, and is never used to train models. Giving this consent is "
     "voluntary and has no effect on my employment. I can delete my voice "
@@ -67,9 +71,12 @@ class TenantVault:
         self.dir = TENANTS_DIR / tenant_id
         self.dir.mkdir(parents=True, exist_ok=True)
         key_file = self.dir / "tenant.key"
-        if not key_file.exists():
-            key_file.write_bytes(Fernet.generate_key())
-            key_file.chmod(0o600)
+        try:  # O_EXCL: two first requests can't create two different keys
+            fd = os.open(key_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "wb") as f:
+                f.write(Fernet.generate_key())
+        except FileExistsError:
+            pass
         self._fernet = Fernet(key_file.read_bytes())
 
     # --- encrypted profile storage -------------------------------------
@@ -96,13 +103,15 @@ class TenantVault:
         return profiles
 
     def list_profiles(self) -> list[dict]:
-        profiles = self._purge_expired(self._load())
+        with _store_lock:
+            profiles = self._purge_expired(self._load())
         return [{k: v for k, v in p.items() if k != "embedding"} | {"id": pid}
                 for pid, p in profiles.items()]
 
     def embeddings(self) -> tuple[list[str], list[str], np.ndarray]:
-        """(ids, names, matrix) for matching — this tenant only."""
-        profiles = self._purge_expired(self._load())
+        """(ids, names, matrix) for matching: this tenant only."""
+        with _store_lock:
+            profiles = self._purge_expired(self._load())
         ids = list(profiles)
         names = [profiles[i]["name"] for i in ids]
         mat = (np.array([profiles[i]["embedding"] for i in ids], dtype=np.float32)
@@ -111,6 +120,10 @@ class TenantVault:
 
     def add_profile(self, name: str, email: str, embedding: np.ndarray,
                     seconds: float, consent_id: str) -> str:
+        with _store_lock:
+            return self._add_profile(name, email, embedding, seconds, consent_id)
+
+    def _add_profile(self, name, email, embedding, seconds, consent_id) -> str:
         profiles = self._load()
         # Re-enrolling replaces the old profile of the same person.
         for pid in [p for p, v in profiles.items() if v["email"] == email]:
@@ -130,6 +143,10 @@ class TenantVault:
         return pid
 
     def delete_profile(self, profile_id: str, by: str) -> bool:
+        with _store_lock:
+            return self._delete_profile(profile_id, by)
+
+    def _delete_profile(self, profile_id: str, by: str) -> bool:
         profiles = self._load()
         if profile_id not in profiles:
             return False
@@ -141,10 +158,11 @@ class TenantVault:
     # --- invites: only the person themself can give consent ------------
     def create_invite(self, name: str, email: str) -> str:
         token = secrets.token_urlsafe(24)
-        invites = self._invites()
-        invites[_hash_token(token)] = {"name": name, "email": email,
-                                       "created": time.time()}
-        (self.dir / "invites.json").write_text(json.dumps(invites))
+        with _invite_lock:
+            invites = self._invites()
+            invites[_hash_token(token)] = {"name": name, "email": email,
+                                           "created": time.time()}
+            (self.dir / "invites.json").write_text(json.dumps(invites))
         self.log("invite_created", email=email)
         return token
 
@@ -178,10 +196,11 @@ class TenantVault:
     # --- self-service management link (stored hashed, like invites) ----
     def create_manage_token(self, profile_id: str) -> str:
         token = secrets.token_urlsafe(24)
-        f = self.dir / "manage.json"
-        tokens = json.loads(f.read_text()) if f.exists() else {}
-        tokens[_hash_token(token)] = profile_id
-        f.write_text(json.dumps(tokens))
+        with _store_lock:
+            f = self.dir / "manage.json"
+            tokens = json.loads(f.read_text()) if f.exists() else {}
+            tokens[_hash_token(token)] = profile_id
+            f.write_text(json.dumps(tokens))
         return token
 
     def profile_for_manage_token(self, token: str) -> str | None:

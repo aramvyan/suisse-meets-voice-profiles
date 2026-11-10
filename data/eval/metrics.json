@@ -1,399 +1,280 @@
 {
-  "dataset": "Mini LibriSpeech (public-domain English audiobooks): 54 speakers, split into 27 people for tuning the threshold and 27 different people for the reported results (20 enrolled + 7 never enrolled in each group)",
-  "models": "pyannote segmentation 3.0 + NVIDIA TitaNet-small + Whisper tiny.en, all ONNX via sherpa-onnx, CPU only",
-  "target_far": 0.001,
-  "chosen_threshold": 0.5,
-  "eer": {
-    "threshold": 0.53,
-    "rate": 0.0
+  "dataset": "AMI Meeting Corpus (real meetings, CC BY 4.0), headset mix. 4 groups of 4 people, 7 later meetings. Voices enrolled from each group's first meeting. Leave-one-group-out: model and threshold chosen on one group, results measured on the other three, all 4 rotations pooled",
+  "chosen_model": "NVIDIA TitaNet-small",
+  "chosen_threshold": 0.575,
+  "max_wrong_rule": 0.01,
+  "test_minutes": 262.5,
+  "result": {
+    "correct": 0.8987890899706729,
+    "wrong": 0.022361862076243567,
+    "missed": 0.026814813106862845
   },
-  "sweep": [
+  "folds": [
     {
-      "threshold": 0.2,
-      "far": 0.11112973516594032,
-      "frr": 0.0
+      "calibration_group": "ES2004",
+      "model": "NVIDIA TitaNet-small",
+      "threshold": 0.425,
+      "test": {
+        "correct": 0.9337354361854533,
+        "wrong": 0.015345094260684356,
+        "missed": 0.028177838068553993
+      }
     },
     {
-      "threshold": 0.21,
-      "far": 0.09453570231310761,
-      "frr": 0.0
+      "calibration_group": "IS1009",
+      "model": "NVIDIA TitaNet-small",
+      "threshold": 0.45,
+      "test": {
+        "correct": 0.9280716183651007,
+        "wrong": 0.01503655952559894,
+        "missed": 0.03149743743908766
+      }
     },
     {
-      "threshold": 0.22,
-      "far": 0.08514917867918204,
-      "frr": 0.0
+      "calibration_group": "TS3003",
+      "model": "NVIDIA TitaNet-small",
+      "threshold": 0.325,
+      "test": {
+        "correct": 0.9034050342554193,
+        "wrong": 0.05652682201866452,
+        "missed": 0.023310395114615138
+      }
     },
     {
-      "threshold": 0.23,
-      "far": 0.07727120348642307,
-      "frr": 0.0
+      "calibration_group": "EN2002",
+      "model": "3D-Speaker ERes2Net",
+      "threshold": 0.575,
+      "test": {
+        "correct": 0.8246745657935263,
+        "wrong": 0.004948620777389977,
+        "missed": 0.02391163820651757
+      }
+    }
+  ],
+  "per_meeting": [
+    {
+      "meeting": "IS1009b",
+      "minutes": 34.2,
+      "correct": 0.9040202168052193,
+      "wrong": 0.013298033156728199,
+      "overlap_share": 0.10085040326662842
     },
     {
-      "threshold": 0.24,
-      "far": 0.06838752933288636,
-      "frr": 0.0
+      "meeting": "IS1009c",
+      "minutes": 30.3,
+      "correct": 0.8980929038281978,
+      "wrong": 0.03785422502334267,
+      "overlap_share": 0.049773755656108594
     },
     {
-      "threshold": 0.25,
-      "far": 0.061850486087831044,
-      "frr": 0.0
+      "meeting": "TS3003b",
+      "minutes": 36.8,
+      "correct": 0.8461588518202605,
+      "wrong": 0.0049901488484964986,
+      "overlap_share": 0.04272373898843067
     },
     {
-      "threshold": 0.26,
-      "far": 0.05363727790814616,
-      "frr": 0.0
+      "meeting": "TS3003c",
+      "minutes": 42.8,
+      "correct": 0.9125276727980046,
+      "wrong": 0.005866049054597919,
+      "overlap_share": 0.049750222024866786
     },
     {
-      "threshold": 0.27,
-      "far": 0.04525645323499832,
-      "frr": 0.0
+      "meeting": "EN2002b",
+      "minutes": 29.8,
+      "correct": 0.892393527162799,
+      "wrong": 0.032328927560759495,
+      "overlap_share": 0.2637669971287719
     },
     {
-      "threshold": 0.28,
-      "far": 0.039725108950720754,
-      "frr": 0.0
+      "meeting": "EN2002c",
+      "minutes": 49.5,
+      "correct": 0.9054863998460455,
+      "wrong": 0.030975314956708754,
+      "overlap_share": 0.24191957001631634
     },
     {
-      "threshold": 0.29,
-      "far": 0.03436138115990613,
-      "frr": 0.0
-    },
+      "meeting": "ES2004b",
+      "minutes": 39.1,
+      "correct": 0.92665107666709,
+      "wrong": 0.03433481134628021,
+      "overlap_share": 0.10083065633269946
+    }
+  ],
+  "clips": {
+    "eer": 0.015593047034764825,
+    "genuine": 652,
+    "impostor": 1956,
+    "impostor_mean": 0.19877741043027375,
+    "genuine_mean": 0.7098907774851366
+  },
+  "test_sweep": [
     {
       "threshold": 0.3,
-      "far": 0.02899765336909152,
-      "frr": 0.0
+      "correct": 0.9099357675393283,
+      "wrong": 0.048940337329054125
     },
     {
-      "threshold": 0.31,
-      "far": 0.024639624539054644,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.32,
-      "far": 0.02011397921555481,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.33,
-      "far": 0.01759973181361046,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.34,
-      "far": 0.013744552463962454,
-      "frr": 0.0
+      "threshold": 0.325,
+      "correct": 0.9158111798003411,
+      "wrong": 0.04210272404872905
     },
     {
       "threshold": 0.35,
-      "far": 0.012236004022795843,
-      "frr": 0.0
+      "correct": 0.9274096927785261,
+      "wrong": 0.029694321595072112
     },
     {
-      "threshold": 0.36,
-      "far": 0.00921890714046262,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.37,
-      "far": 0.007039892725444184,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.38,
-      "far": 0.005698960777740529,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.39,
-      "far": 0.005028494803888703,
-      "frr": 0.0
+      "threshold": 0.375,
+      "correct": 0.9269152899506307,
+      "wrong": 0.028483367224684135
     },
     {
       "threshold": 0.4,
-      "far": 0.0038551793496480052,
-      "frr": 0.0
+      "correct": 0.9380298202502078,
+      "wrong": 0.01581357421762415
     },
     {
-      "threshold": 0.41,
-      "far": 0.0028494803888702647,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.42,
-      "far": 0.0023466309084813944,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.43,
-      "far": 0.0018437814280925244,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.44,
-      "far": 0.0011733154542406972,
-      "frr": 0.0
+      "threshold": 0.425,
+      "correct": 0.9372873291871485,
+      "wrong": 0.014459841631467255
     },
     {
       "threshold": 0.45,
-      "far": 0.0010056989607777405,
-      "frr": 0.0
+      "correct": 0.9357398261653053,
+      "wrong": 0.013553288643456191
     },
     {
-      "threshold": 0.46,
-      "far": 0.0008380824673147837,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.47,
-      "far": 0.0006704659738518271,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.48,
-      "far": 0.0005028494803888703,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.49,
-      "far": 0.00016761649346295676,
-      "frr": 0.0
+      "threshold": 0.475,
+      "correct": 0.9359688477443259,
+      "wrong": 0.011722667948418931
     },
     {
       "threshold": 0.5,
-      "far": 0.00016761649346295676,
-      "frr": 0.0
+      "correct": 0.9336549094865926,
+      "wrong": 0.011364835587780668
     },
     {
-      "threshold": 0.51,
-      "far": 0.00016761649346295676,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.52,
-      "far": 0.00016761649346295676,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.53,
-      "far": 0.0,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.54,
-      "far": 0.0,
-      "frr": 0.0
+      "threshold": 0.525,
+      "correct": 0.9295939334334259,
+      "wrong": 0.010729649891852152
     },
     {
       "threshold": 0.55,
-      "far": 0.0,
-      "frr": 0.0
+      "correct": 0.8997679188877843,
+      "wrong": 0.0101456781211451
     },
     {
-      "threshold": 0.56,
-      "far": 0.0,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.57,
-      "far": 0.0,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.58,
-      "far": 0.0,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.59,
-      "far": 0.0,
-      "frr": 0.0
+      "threshold": 0.575,
+      "correct": 0.865437517680998,
+      "wrong": 0.007509158646107786
     },
     {
       "threshold": 0.6,
-      "far": 0.0,
-      "frr": 0.0
+      "correct": 0.8387215851397143,
+      "wrong": 0.006747600926905535
     },
     {
-      "threshold": 0.61,
-      "far": 0.0,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.62,
-      "far": 0.0,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.63,
-      "far": 0.0,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.64,
-      "far": 0.0,
-      "frr": 0.0
+      "threshold": 0.625,
+      "correct": 0.8346617176130675,
+      "wrong": 0.006390433682179239
     },
     {
       "threshold": 0.65,
-      "far": 0.0,
-      "frr": 0.0
+      "correct": 0.817339882212406,
+      "wrong": 0.0060159734237418
     },
     {
-      "threshold": 0.66,
-      "far": 0.0,
-      "frr": 0.0
-    },
-    {
-      "threshold": 0.67,
-      "far": 0.0,
-      "frr": 0.004273504273504274
-    },
-    {
-      "threshold": 0.68,
-      "far": 0.0,
-      "frr": 0.008547008547008548
-    },
-    {
-      "threshold": 0.69,
-      "far": 0.0,
-      "frr": 0.01282051282051282
+      "threshold": 0.675,
+      "correct": 0.7721224203479354,
+      "wrong": 0.005068848365100747
     },
     {
       "threshold": 0.7,
-      "far": 0.0,
-      "frr": 0.01282051282051282
+      "correct": 0.6884916323984168,
+      "wrong": 0.00422814185237442
     },
     {
-      "threshold": 0.71,
-      "far": 0.0,
-      "frr": 0.02564102564102564
-    },
-    {
-      "threshold": 0.72,
-      "far": 0.0,
-      "frr": 0.029914529914529916
-    },
-    {
-      "threshold": 0.73,
-      "far": 0.0,
-      "frr": 0.042735042735042736
-    },
-    {
-      "threshold": 0.74,
-      "far": 0.0,
-      "frr": 0.04700854700854701
+      "threshold": 0.725,
+      "correct": 0.6681284436376342,
+      "wrong": 0.004022621035576606
     },
     {
       "threshold": 0.75,
-      "far": 0.0,
-      "frr": 0.05555555555555555
+      "correct": 0.6485223784899741,
+      "wrong": 0.0037446025843743875
     },
     {
-      "threshold": 0.76,
-      "far": 0.0,
-      "frr": 0.0641025641025641
-    },
-    {
-      "threshold": 0.77,
-      "far": 0.0,
-      "frr": 0.07264957264957266
-    },
-    {
-      "threshold": 0.78,
-      "far": 0.0,
-      "frr": 0.0811965811965812
-    },
-    {
-      "threshold": 0.79,
-      "far": 0.0,
-      "frr": 0.10256410256410256
+      "threshold": 0.775,
+      "correct": 0.6322822432674751,
+      "wrong": 0.0037206584115435743
     },
     {
       "threshold": 0.8,
-      "far": 0.0,
-      "frr": 0.1282051282051282
+      "correct": 0.5970659076659487,
+      "wrong": 0.003412709744302839
     },
     {
-      "threshold": 0.81,
-      "far": 0.0,
-      "frr": 0.15384615384615385
-    },
-    {
-      "threshold": 0.82,
-      "far": 0.0,
-      "frr": 0.17094017094017094
-    },
-    {
-      "threshold": 0.83,
-      "far": 0.0,
-      "frr": 0.1794871794871795
-    },
-    {
-      "threshold": 0.84,
-      "far": 0.0,
-      "frr": 0.2094017094017094
+      "threshold": 0.825,
+      "correct": 0.5825282474727812,
+      "wrong": 0.0029724030105806637
     },
     {
       "threshold": 0.85,
-      "far": 0.0,
-      "frr": 0.23504273504273504
-    },
-    {
-      "threshold": 0.86,
-      "far": 0.0,
-      "frr": 0.3076923076923077
-    },
-    {
-      "threshold": 0.87,
-      "far": 0.0,
-      "frr": 0.358974358974359
-    },
-    {
-      "threshold": 0.88,
-      "far": 0.0,
-      "frr": 0.4444444444444444
-    },
-    {
-      "threshold": 0.89,
-      "far": 0.0,
-      "frr": 0.5128205128205128
-    },
-    {
-      "threshold": 0.9,
-      "far": 0.0,
-      "frr": 0.5726495726495726
+      "correct": 0.5181906984869943,
+      "wrong": 0.002280682462134951
     }
   ],
-  "verification": {
-    "genuine_trials": 234,
-    "impostor_trials": 5966,
-    "far_at_chosen": 0.00016761649346295676,
-    "frr_at_chosen": 0.0
-  },
-  "identification": {
-    "correct_rate": 0.9967741935483871,
-    "wrong_name_rate": 0.0032258064516129032,
-    "known_unnamed_rate": 0.0,
-    "test_utterances": 310,
-    "enrolled_speakers": 20,
-    "unknown_speakers": 7,
-    "clip_seconds": "2\u20138 s each"
-  },
-  "meetings": {
-    "count": 8,
-    "total_minutes": 20.4,
-    "speakers_per_meeting": 4,
-    "attribution_accuracy": 0.9179216828144013,
-    "wrong_name_rate": 0.019824311869390376,
-    "der": 0.25035894342411374,
-    "cross_tenant_names_leaked": 0,
-    "noisy_10db": {
-      "count": 4,
-      "total_minutes": 10.2,
-      "speakers_per_meeting": 4,
-      "attribution_accuracy": 0.8985576961099839,
-      "wrong_name_rate": 0.010977750598833942,
-      "der": 0.27473090421948
+  "models": {
+    "NVIDIA TitaNet-small": {
+      "test": {
+        "correct": 0.9022872301587794,
+        "wrong": 0.02254055655125871,
+        "missed": 0.026814813106862845
+      },
+      "clips": {
+        "eer": 0.015593047034764825,
+        "genuine": 652,
+        "impostor": 1956,
+        "impostor_mean": 0.19877741043027375,
+        "genuine_mean": 0.7098907774851366
+      }
+    },
+    "WeSpeaker ResNet34": {
+      "test": {
+        "correct": 0.8327717537983291,
+        "wrong": 0.05685965078754158,
+        "missed": 0.026814813106862845
+      },
+      "clips": {
+        "eer": 0.13087934560327197,
+        "genuine": 652,
+        "impostor": 1956,
+        "impostor_mean": 0.34643918825960995,
+        "genuine_mean": 0.7334049475247875
+      }
+    },
+    "3D-Speaker ERes2Net": {
+      "test": {
+        "correct": 0.900560737054849,
+        "wrong": 0.01789405679025703,
+        "missed": 0.026814813106862845
+      },
+      "clips": {
+        "eer": 0.023261758691206544,
+        "genuine": 652,
+        "impostor": 1956,
+        "impostor_mean": 0.1392250081087636,
+        "genuine_mean": 0.6433815953830269
+      }
     }
-  }
+  },
+  "foreign_gallery": {
+    "names_shown": 1,
+    "speakers_checked": 239,
+    "gallery_size": 12,
+    "profiles_visible_to_other_customer": 0
+  },
+  "limits": "Headset audio, not far-field room microphones. English only. 16 people in 4 groups; results vary a lot between groups, see per meeting. Overlapped speech excluded."
 }

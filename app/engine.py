@@ -28,13 +28,16 @@ WHISPER_DIR = MODELS / "sherpa-onnx-whisper-tiny.en"
 MIN_ENROLL_SECONDS = 8.0
 
 
-def load_audio(path: str | Path) -> np.ndarray:
+def load_audio(source: str | Path | bytes) -> np.ndarray:
     """Decode any audio format (wav, webm from the browser, mp3, m4a) to
-    16 kHz mono float32 via ffmpeg."""
+    16 kHz mono float32 via ffmpeg. Bytes are piped through stdin, so an
+    uploaded recording never touches the disk."""
+    data = source if isinstance(source, bytes) else None
+    src = "pipe:0" if data is not None else str(source)
     out = subprocess.run(
-        ["ffmpeg", "-nostdin", "-loglevel", "error", "-i", str(path),
+        ["ffmpeg", "-loglevel", "error", "-i", src,
          "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "f32le", "-"],
-        capture_output=True, check=True,
+        input=data, capture_output=True, check=True,
     ).stdout
     return np.frombuffer(out, dtype=np.float32).copy()
 
@@ -102,4 +105,8 @@ def cluster_audio(samples: np.ndarray, turns: list[Turn], cluster: int,
         total += t.end - t.start
         if total >= max_seconds:
             break
-    return np.concatenate(parts) if parts else np.zeros(0, dtype=np.float32)
+    if not parts:
+        return np.zeros(0, dtype=np.float32)
+    # One long monologue can exceed the cap on its own; the embedding model
+    # fails on very long inputs, so cut to max_seconds exactly.
+    return np.concatenate(parts)[: int(max_seconds * SAMPLE_RATE)]

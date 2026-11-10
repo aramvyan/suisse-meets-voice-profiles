@@ -6,7 +6,6 @@ Run:  .venv/bin/uvicorn app.main:app --port 8000
 from __future__ import annotations
 
 import json
-import tempfile
 import threading
 import time
 from pathlib import Path
@@ -43,13 +42,10 @@ def vault(tenant: str) -> TenantVault:
 
 
 async def decode_upload(upload: UploadFile):
-    with tempfile.NamedTemporaryFile(suffix=Path(upload.filename or "a").suffix) as tmp:
-        tmp.write(await upload.read())
-        tmp.flush()
-        try:
-            return load_audio(tmp.name)
-        except Exception:
-            raise HTTPException(400, "could not decode audio")
+    try:
+        return load_audio(await upload.read())  # in memory only
+    except Exception:
+        raise HTTPException(400, "could not decode audio")
 
 
 # --- pages -------------------------------------------------------------
@@ -127,6 +123,9 @@ async def enroll(tenant: str, token: str, audio: UploadFile,
     inv = v.take_invite(token)  # claimed atomically: one invite, one profile
     if not inv:
         raise HTTPException(404, "invite link is invalid or expired")
+    # Consent is recorded BEFORE any voice processing starts.
+    consent_id = v.log("consent_given", email=inv["email"], version=CONSENT_VERSION,
+                       text_sha256=CONSENT_HASH, channel="personal invite link")
     try:
         samples = await decode_upload(audio)
         with engine_lock:
@@ -143,14 +142,13 @@ async def enroll(tenant: str, token: str, audio: UploadFile,
             raise HTTPException(400, "more than one voice detected — please record alone")
         with engine_lock:
             vec = engine.embed(cluster_audio(samples, turns, main, max_seconds=60))
-    except Exception:
+    except Exception as e:
+        v.log("enrollment_failed", email=inv["email"], consent_id=consent_id,
+              reason=getattr(e, "detail", "error"))
         v.restore_invite(token, inv)  # let the person try again
         raise
-    # Consent is recorded BEFORE the biometric profile exists.
-    consent_id = v.log("consent_given", email=inv["email"], version=CONSENT_VERSION,
-                       text_sha256=CONSENT_HASH, channel="personal invite link")
     pid = v.add_profile(inv["name"], inv["email"], vec, per_cluster[main], consent_id)
-    # The raw recording is discarded here — it only lived in memory.
+    # The raw recording is discarded here: it only lived in memory.
     # The manage token is the person's private delete link; in production it
     # is emailed to them, and they can also delete after logging in.
     return {"manage_token": v.create_manage_token(pid),
@@ -213,8 +211,9 @@ async def analyze(tenant: str, audio: UploadFile, threshold: float | None = Form
                      for a, b in _chunks(seg["start"], seg["end"])]
             seg["text"] = " ".join(x for x in texts if x)
     order = {c: i + 1 for i, c in enumerate(dict.fromkeys(t.cluster for t in turns))}
+    # Each use of a profile is logged (ids only, no voice data).
     v.log("meeting_analyzed", speakers=len(clusters),
-          identified=sum(1 for m in matches.values() if m.name))
+          profiles_used=",".join(m.profile_id for m in matches.values() if m.profile_id))
     return {
         "duration": round(len(samples) / SAMPLE_RATE, 1),
         "processing_seconds": round(time.time() - t0, 1),
@@ -233,12 +232,8 @@ async def analyze(tenant: str, audio: UploadFile, threshold: float | None = Form
 def evaluation():
     f = ROOT / "data" / "eval" / "metrics.json"
     if not f.exists():
-        raise HTTPException(404, "run scripts/evaluate.py first")
-    out = json.loads(f.read_text())
-    cmp = ROOT / "data" / "eval" / "model_comparison.json"
-    if cmp.exists():
-        out["model_comparison"] = json.loads(cmp.read_text())
-    return out
+        raise HTTPException(404, "run scripts/evaluate_ami.py first")
+    return json.loads(f.read_text())
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

@@ -5,3 +5,5 @@ models/
 data/raw/
 data/tenants/
 data/demo/
+data/ami/
+.playwright-mcp/

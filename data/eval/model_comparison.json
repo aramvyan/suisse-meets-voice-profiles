@@ -1,8 +1,0 @@
-{
-  "setup": "20 test speakers enrolled with ~20 s each, 8 test clips (2-8 s) per speaker, every clip vs every profile; cosine similarity",
-  "models": [
-    {"model": "WeSpeaker ResNet34 (VoxCeleb)", "eer": 0.0248, "eer_mean_normalised": 0.0214, "impostor_mean_score": 0.57, "genuine_mean_score": 0.89},
-    {"model": "3D-Speaker ERes2Net base", "eer": 0.0062, "eer_mean_normalised": 0.0062, "impostor_mean_score": 0.18, "genuine_mean_score": 0.82},
-    {"model": "NVIDIA TitaNet-small", "eer": 0.0, "eer_mean_normalised": 0.0, "impostor_mean_score": 0.07, "genuine_mean_score": 0.88, "chosen": true}
-  ]
-}

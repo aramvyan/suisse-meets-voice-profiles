@@ -57,7 +57,8 @@ def test_too_short_sample_is_refused_and_nothing_stored(client):
     assert r.status_code == 400 and "at least" in r.json()["detail"]
     assert client.get("/api/t/alpine-dental/profiles").json() == []
     events = [e["event"] for e in client.get("/api/t/alpine-dental/audit").json()]
-    assert "consent_given" not in events
+    # Consent is logged before processing; the failure is logged too.
+    assert "enrollment_failed" in events and "profile_created" not in events
 
 
 def test_failed_enrollment_gives_the_invite_back(client):
