@@ -33,9 +33,14 @@ def load_audio(source: str | Path | bytes) -> np.ndarray:
     16 kHz mono float32 via ffmpeg. Bytes are piped through stdin, so an
     uploaded recording never touches the disk."""
     data = source if isinstance(source, bytes) else None
-    src = "pipe:0" if data is not None else str(source)
+    # An upload could be a playlist that points ffmpeg at URLs or local
+    # files; allow only the one protocol we expect.
+    if data is not None:
+        args = ["-protocol_whitelist", "pipe", "-i", "pipe:0"]
+    else:
+        args = ["-nostdin", "-protocol_whitelist", "file", "-i", str(source)]
     out = subprocess.run(
-        ["ffmpeg", "-loglevel", "error", "-i", src,
+        ["ffmpeg", "-loglevel", "error", *args,
          "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "f32le", "-"],
         input=data, capture_output=True, check=True,
     ).stdout

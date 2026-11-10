@@ -75,3 +75,12 @@ def test_self_delete_needs_the_manage_token_not_the_profile_id(client):
     token = v.create_manage_token(pid)
     assert client.delete(f"/api/me/alpine-dental/{token}").status_code == 200
     assert client.get("/api/t/alpine-dental/profiles").json() == []
+
+
+def test_playlist_upload_is_rejected(client):
+    token = invite(client)
+    playlist = b"#EXTM3U\n#EXTINF:10,\nhttp://127.0.0.1:9/secret.wav\n#EXT-X-ENDLIST\n"
+    r = client.post(f"/api/invite/alpine-dental/{token}/enroll",
+                    data={"consent": "true", "consent_version": store.CONSENT_VERSION},
+                    files={"audio": ("a.m3u8", playlist, "audio/x-mpegurl")})
+    assert r.status_code == 400 and "decode" in r.json()["detail"]
